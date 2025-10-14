@@ -1,0 +1,12 @@
+{
+  "name": "fastdl",
+  "version": "1.0.0",
+  "description": "Fast, reliable Node.js downloader CLI by Yogesh Bhavsar",
+  "main": "downloader.js",
+  "bin": {
+    "fastdl": "./downloader.js"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "Yogesh Bhavsar",
+  "type": "module"
+}
