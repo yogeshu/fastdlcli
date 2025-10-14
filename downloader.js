@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * fastdl - Simple, reliable Node.js downloader CLI
+ * fastdlcli - Simple, reliable Node.js downloader CLI
  * © 2025 Yogesh Bhavsar | Source available under BSL 1.1 (non-commercial use)
  */
 
