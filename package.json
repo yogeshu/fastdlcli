@@ -7,6 +7,5 @@
     "fastdlcli": "./downloader.js"
   },
   "license": "SEE LICENSE IN LICENSE",
-  "author": "Yogesh Bhavsar",
-  "type": "module"
+  "author": "Yogesh Bhavsar"
 }

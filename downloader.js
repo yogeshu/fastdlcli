@@ -12,6 +12,8 @@ const { URL } = require('url');
 const path = require('path');
 
 const URL_FILE = 'downloads.txt'; // default list file
+const MAX_REDIRECTS = 5;
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0 Safari/537.36';
 
 function formatBytes(bytes) {
   return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
@@ -67,6 +69,42 @@ function getSafeFileName(name) {
   }
   return fileName;
 }
+
+/**
+ * Follow redirects (up to MAX_REDIRECTS)
+ */
+function fetchWithRedirects(url, redirects = 0) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https') ? https : http;
+    const REFERER = new URL(url).origin;
+
+    const options = {
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Referer': REFERER,
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'identity'
+      }
+    };
+
+    protocol.get(url, options, (res) => {
+      const isRedirect = [301, 302, 303, 307, 308].includes(res.statusCode);
+      if (isRedirect && res.headers.location) {
+        if (redirects >= MAX_REDIRECTS) {
+          res.destroy();
+          return reject(new Error('Too many redirects'));
+        }
+        const newUrl = new URL(res.headers.location, url).toString();
+        res.destroy();
+        resolve(fetchWithRedirects(newUrl, redirects + 1));
+      } else {
+        resolve(res);
+      }
+    }).on('error', reject);
+  });
+}
+
 function readUrlsFromFile(filename) {
   const content = fs.readFileSync(filename, 'utf-8');
   return content
@@ -74,6 +112,7 @@ function readUrlsFromFile(filename) {
     .map(line => line.trim())
     .filter(line => line.length > 0 && !line.startsWith('#'));
 }
+
 async function askForUrls() {
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -84,14 +123,22 @@ async function askForUrls() {
     });
   });
 }
-function downloadSequentially(url, index) {
-  return new Promise((resolve) => {
-    const startTime = Date.now();
-    const protocol = url.startsWith('https') ? https : http;
 
-    protocol.get(url, res => {
+async function downloadSequentially(url, index) {
+  return new Promise(async (resolve) => {
+    const startTime = Date.now();
+    try {
+      const res = await fetchWithRedirects(url);
+
       if (res.statusCode !== 200) {
         console.error(`\n❌ Failed (${res.statusCode}) ${url}`);
+        if (res.statusCode === 403) {
+          console.warn(`⚠️ The server refused access. Some sites use security protection (e.g., Cloudflare) that blocks automated tools.
+   Try opening this link in a browser instead.`);
+        } else if (res.statusCode === 429) {
+          console.warn(`⚠️ Too many requests — the server is rate-limiting your downloads.`);
+        }
+        res.destroy();
         return resolve(false);
       }
 
@@ -118,12 +165,19 @@ function downloadSequentially(url, index) {
           resolve(true);
         });
       });
-    }).on('error', err => {
+
+      res.on('error', err => {
+        console.error(`❌ Stream error for ${url}: ${err.message}`);
+        resolve(false);
+      });
+
+    } catch (err) {
       console.error(`❌ Error downloading ${url}: ${err.message}`);
       resolve(false);
-    });
+    }
   });
 }
+
 async function main() {
   let urls = process.argv.slice(2);
 
@@ -148,4 +202,5 @@ async function main() {
 
   console.log(`\n🎉 Download finished: ${successCount}/${urls.length} successful.`);
 }
+
 main();
