@@ -1,6 +1,6 @@
 {
   "name": "fastdlcli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Fast, reliable Node.js downloader CLI by Yogesh Bhavsar",
   "main": "downloader.js",
   "bin": {
